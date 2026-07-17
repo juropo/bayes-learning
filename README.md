@@ -92,6 +92,7 @@ A Python port of the MATLAB code accompanying Roponen & Salo (2024), ["A probabi
 - [cross_impact/examples.py](cross_impact/examples.py) — the paper's two worked examples (`energy_network`, `printing_network`) as reusable network builders.
 - [cross_impact/pyagrum_export.py](cross_impact/pyagrum_export.py) — `to_pyagrum`, exporting a fitted network into a `gum.BayesNet` for inference/visualization (the pyAgrum equivalent of what `genie_parser.m` did for GeNIe in the original MATLAB code); `graft_onto_pyagrum`, adding newly-fitted cross-impact nodes onto an *existing* `gum.BayesNet` (e.g. one learned from data) without touching its existing nodes.
 - [cross_impact/pyagrum_import.py](cross_impact/pyagrum_import.py) — `marginals_and_joint_from_pyagrum`, extracting exact marginals/joints out of an already-fitted `gum.BayesNet` via inference, for use as `build_network`'s `initial_joint`.
+- [cross_impact/influence_diagram.py](cross_impact/influence_diagram.py) — `build_influence_diagram`, extending a fitted network with decision and utility nodes into a `gum.InfluenceDiagram` (solvable with `gum.ShaferShenoyLIMIDInference` for expected utility / optimal policy).
 
 ```python
 from cross_impact import build_network, energy_network, to_pyagrum
@@ -134,6 +135,36 @@ merged = graft_onto_pyagrum(learned_bn, built, n_given=2)
 
 `marginals_and_joint_from_pyagrum` pulls the *exact* joint of however many learned nodes will act as parents (not just their marginals treated independently -- correlation between them is preserved via `gum.LazyPropagation.jointPosterior`, which needs `addJointTarget` called before inference for node sets that aren't already a clique, handled internally). `build_network`'s `initial_joint` then seeds the running joint with that exact prefix instead of fitting it, so the learned nodes are never touched by the (approximate) cross-impact fitting machinery at all -- only the genuinely new nodes get fit, correctly conditioned on the learned nodes' true correlation structure. `graft_onto_pyagrum` adds those new nodes onto a *copy* of the original `learned_bn` (which is left untouched) rather than rebuilding it from scratch.
 
+#### Decision and utility nodes
+
+Decision and utility nodes are kept entirely outside `build_network`'s fitting machinery: a decision node has no probability distribution (its value is chosen, not random, so there's no marginal to match and no cross-impact multiplier to fit against), and a utility node's value table is a payoff you specify directly, not something cross-impact analysis produces. `build_influence_diagram` (`cross_impact.influence_diagram`) assembles a `gum.InfluenceDiagram` from a fitted network plus:
+
+- `promote`: names of already-fitted chance factors to turn into decisions instead. This is more than a relabeling trick: a fitted CPT `q(child | parent=l)` is valid for *every* state `l` of the parent regardless of whether `l` was drawn from a distribution or chosen by a decision maker, so every downstream child keeps its cross-impact-fitted CPT completely unchanged -- no refitting needed, and it correctly captures how outcomes change under each possible choice. The promoted node's own incoming arcs (its former cross-impact parents, if any) are dropped, since a decision's value isn't caused by anything -- it's simply set. Useful for modeling "the current way of doing things" as an ordinary cross-impact factor first, then turning it into a lever once you want to evaluate acting on it.
+- `decisions`: brand-new `Decision(name, alternatives)` nodes.
+- `manual_nodes`: brand-new `ManualChanceNode(name, n_states, parents, cpt)` -- chance nodes whose CPT you hand-specify rather than fit, needed whenever a parent is a decision (cross-impact fitting doesn't apply to a parent with no marginal). Must be given in dependency order (parents already added to the diagram).
+- `utilities`: `Utility(name, parents, table)` -- a deterministic payoff table (shape = parents' state counts, one value per parent configuration) over any mix of chance and decision parents.
+
+```python
+from cross_impact import build_network, energy_network
+from cross_impact.influence_diagram import Decision, InfluenceDiagramSpec, Utility, build_influence_diagram
+import pyagrum as gum
+import numpy as np
+
+built = build_network(energy_network(), mode="exact")
+
+spec = InfluenceDiagramSpec(
+    built=built,
+    promote=("Nuclear power",),  # now a decision; Renewables/Energy storage keep their fitted CPTs
+    utilities=(Utility(name="U", parents=("Energy storage",), table=np.array([100.0, 50.0, -20.0])),),
+)
+id_ = build_influence_diagram(spec)
+
+ie = gum.ShaferShenoyLIMIDInference(id_)
+ie.makeInference()
+ie.MEU()                          # {"mean": ..., "variance": ...}
+ie.optimalDecision("Nuclear power")  # the optimal policy
+```
+
 ### Tests
 
 `tests/test_*.py` port the original MATLAB example scripts as validation:
@@ -150,5 +181,6 @@ merged = graft_onto_pyagrum(learned_bn, built, n_given=2)
 | `test_pyagrum_import.py` | — (new) | `marginals_and_joint_from_pyagrum`'s extracted marginals/joints (adjacent, non-adjacent, 3-way, with evidence) match hand-computed values on a known chain network |
 | `test_initial_joint.py` | — (new) | `build_network(initial_joint=...)`'s seeded prefix is derived exactly (not approximated), and a new factor's fit doesn't distort it |
 | `test_pyagrum_roundtrip.py` | — (new) | Full learn-then-graft workflow: pyAgrum's own inference on the *merged* network reproduces `build_network`'s computed joint exactly, and the learned nodes' distribution is provably unchanged after grafting |
+| `test_influence_diagram.py` | — (new) | Promoting a fitted node to a decision leaves its children's CPTs and MEU/optimal-policy computation exactly matching a hand calculation; same for brand-new decisions with a manually-specified CPT |
 
 Run with `uv run pytest tests`.

@@ -1,5 +1,12 @@
 from cross_impact.examples import energy_network, printing_network
 from cross_impact.fitting import fit_conditional_distribution, fit_joint_distribution
+from cross_impact.influence_diagram import (
+    Decision,
+    InfluenceDiagramSpec,
+    ManualChanceNode,
+    Utility,
+    build_influence_diagram,
+)
 from cross_impact.io import load_cross_impact_matrix, multiplier_from_ordinal_scale
 from cross_impact.ipf import fit_conditional_distribution_ipf, fit_joint_distribution_ipf
 from cross_impact.model import (
@@ -16,7 +23,12 @@ from cross_impact.pyagrum_import import marginals_and_joint_from_pyagrum
 __all__ = [
     "BuiltNetwork",
     "CrossImpactNetwork",
+    "Decision",
+    "InfluenceDiagramSpec",
+    "ManualChanceNode",
     "UncertaintyFactor",
+    "Utility",
+    "build_influence_diagram",
     "build_network",
     "cross_impacts_from_joint",
     "energy_network",

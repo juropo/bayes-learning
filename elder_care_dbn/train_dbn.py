@@ -16,7 +16,7 @@ from dbn_data_prep import build_transition_table
 
 DIAGNOSIS_LABELS = ["NONE", "MILD", "MEDIUM", "DIFFICULT", "DEAD"]
 LIVING_LABELS = ["INDEPENDENT", "FAMILY_CARE", "HOME_CARE", "HEALTH_CENTRE", "DEAD"]
-TREATMENT_LABELS = ["NONE", "HEALTH_CENTRE", "ED"]
+TREATMENT_LABELS = ["NONE", "HEALTH_CENTRE", "ED", "HOSPITAL"]
 SICKNESS_LABELS = DIAGNOSIS_LABELS  # sickness is set equal to diagnosis (same vocabulary)
 ANCHOR_LABELS = ["0", "1"]
 
@@ -250,7 +250,7 @@ def train(
 
 if __name__ == "__main__":
     bn = train(
-        visits_csv="data/visits_added_waiting_times_hc_450_ed_50.csv",
+        visits_csv="data/visits_hc_450_ed_50_hosp_25.csv",
         training_csv="data/dbn_training_data.csv",
         output_bn="data/elder_twodbn.bif",
     )

@@ -56,7 +56,7 @@ def _explode_visit_spans(visits: pd.DataFrame) -> pd.DataFrame:
             "Elder ID": repeated["Elder ID"].to_numpy(),
             "tick": tick,
             "diagnosis": repeated["Diagnosis"].map(_clean_diagnosis).to_numpy(),
-            "living": repeated["Place of origin"].map(_clean_living).to_numpy(),
+            "living": repeated["Place of living"].map(_clean_living).to_numpy(),
             "treatment": repeated["Place of care"].map(_clean_treatment).to_numpy(),
         }
     )
@@ -68,9 +68,9 @@ def _endpoint_events(visits: pd.DataFrame) -> pd.DataFrame:
     (Start == End) also carry their own treatment here, since `_explode_visit_spans`
     skips them.
     """
-    origin = visits["Place of origin"].map(_clean_living)
+    origin = visits["Place of living"].map(_clean_living)
     further_raw = visits["Further care"]
-    further = np.where(further_raw == "Unit.ED", origin, further_raw.map(_clean_living))
+    further = np.where((further_raw == "Unit.ED") | (further_raw == "Unit.HOSPITAL"), origin, further_raw.map(_clean_living))
 
     zero_length = visits["End Time"] == visits["Start Time"]
     treatment = np.where(zero_length, visits["Place of care"].map(_clean_treatment), None)
@@ -144,7 +144,7 @@ def build_transition_table(csv_path: str) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    table = build_transition_table("data/visits_added_waiting_times_hc_450_ed_50.csv")
+    table = build_transition_table("data/visits_hc_450_ed_50_hosp_25.csv")
     print(table.shape)
     print(table.head(20))
     table.to_csv("data/dbn_transitions.csv", index=False)

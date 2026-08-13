@@ -64,13 +64,16 @@ def _explode_visit_spans(visits: pd.DataFrame) -> pd.DataFrame:
 
 def _endpoint_events(visits: pd.DataFrame) -> pd.DataFrame:
     """One row per visit at tick == End Time: living transitions to `Further care`
-    ("Unit.ED" is a logging glitch -> treated as "no change"). Zero-length visits
-    (Start == End) also carry their own treatment here, since `_explode_visit_spans`
-    skips them.
+    ("Unit.ED" is a logging glitch -> treated as "no change"; so is "Unit.DEAD" --
+    death is already captured by `diagnosis` reaching "DEAD", so `living` just
+    keeps its last real value rather than gaining a redundant "DEAD" state of its
+    own -- see `_reconstruct_elder_timelines`). Zero-length visits (Start == End)
+    also carry their own treatment here, since `_explode_visit_spans` skips them.
     """
     origin = visits["Place of living"].map(_clean_living)
     further_raw = visits["Further care"]
-    further = np.where((further_raw == "Unit.ED") | (further_raw == "Unit.HOSPITAL"), origin, further_raw.map(_clean_living))
+    no_change = (further_raw == "Unit.ED") | (further_raw == "Unit.HOSPITAL") | (further_raw == "Unit.DEAD")
+    further = np.where(no_change, origin, further_raw.map(_clean_living))
 
     zero_length = visits["End Time"] == visits["Start Time"]
     treatment = np.where(zero_length, visits["Place of care"].map(_clean_treatment), None)
@@ -91,8 +94,10 @@ def _reconstruct_elder_timelines(visits: pd.DataFrame) -> pd.DataFrame:
     timeline per elder, covering every tick from their first event to their
     last: gaps between visits are forward-filled (diagnosis/living carry over,
     treatment defaults to "NONE"), and the timeline is truncated right after
-    living first reaches "DEAD" (elders' visits stop there in the raw data,
-    so there's nothing real to fill in beyond that point).
+    `diagnosis` first reaches "DEAD" (elders' visits stop there in the raw
+    data, so there's nothing real to fill in beyond that point). `living`
+    never reaches "DEAD" itself -- see `_endpoint_events` -- so it just
+    carries its last real value into that final tick.
 
     Args:
         visits: raw visit log, as read from the CSV (one row per visit).
@@ -111,7 +116,7 @@ def _reconstruct_elder_timelines(visits: pd.DataFrame) -> pd.DataFrame:
         g["living"] = g["living"].ffill()
         g["treatment"] = g["treatment"].fillna("NONE")
 
-        dead_ticks = g.index[g["living"] == "DEAD"]
+        dead_ticks = g.index[g["diagnosis"] == "DEAD"]
         if len(dead_ticks) > 0:
             g = g.loc[: dead_ticks[0]]
 

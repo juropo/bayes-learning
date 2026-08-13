@@ -15,7 +15,9 @@ import pyagrum as gum
 from dbn_data_prep import build_transition_table
 
 DIAGNOSIS_LABELS = ["NONE", "MILD", "MEDIUM", "DIFFICULT", "DEAD"]
-LIVING_LABELS = ["INDEPENDENT", "FAMILY_CARE", "HOME_CARE", "HEALTH_CENTRE", "DEAD"]
+# No "DEAD" here: death is fully captured by `diagnosis`, and living never
+# gains a redundant state of its own for it (see dbn_data_prep._endpoint_events).
+LIVING_LABELS = ["INDEPENDENT", "FAMILY_CARE", "HOME_CARE", "HEALTH_CENTRE"]
 TREATMENT_LABELS = ["NONE", "HEALTH_CENTRE", "ED", "HOSPITAL"]
 SICKNESS_LABELS = DIAGNOSIS_LABELS  # sickness is set equal to diagnosis (same vocabulary)
 ANCHOR_LABELS = ["0", "1"]
@@ -38,7 +40,7 @@ SICKNESS0_PRIOR = {
 
 TOPOLOGY = (
     "diagnosis0[5]<-sickness0[5]->sicknesst[5]<-treatment0[3]<-diagnosis0[5]<-anchor[2];"
-    "sicknesst[5]<-living0[5]->livingt[5]<-diagnosis0[5];"
+    "sicknesst[5]<-living0[4]->livingt[4]<-diagnosis0[5];"
     "diagnosist[5]<-anchor[2];"
     "treatmentt[3]<-diagnosist[5]<-sicknesst[5]"
 )
@@ -166,15 +168,13 @@ def tie_stationary_relations(bn: gum.BayesNet) -> gum.BayesNet:
 
 def apply_domain_knowledge(bn: gum.BayesNet) -> gum.BayesNet:
     """Bake in facts we're certain of rather than trusting the learned CPTs on
-    parent combinations that have little or no real data behind them (e.g.
-    living0="DEAD" never appears as a "from" state, since elders' timelines
-    stop there -- see dbn_data_prep._reconstruct_elder_timelines):
+    parent combinations that have little or no real data behind them:
     - "DEAD" sickness is absorbing;
-    - living, once DEAD, never changes;
     - once diagnosed dead, treatment stops;
     - sickness0's own prior is fixed from data instead of left to the learner
       (see SICKNESS0_PRIOR): nobody starts out already dead, and most people
       aren't very sick to begin with.
+    (living has no "DEAD" state of its own to force -- see LIVING_LABELS.)
 
     Args:
         bn: freshly learned network to correct in place.
@@ -185,7 +185,6 @@ def apply_domain_knowledge(bn: gum.BayesNet) -> gum.BayesNet:
     tie_stationary_relations(bn)
 
     force_deterministic(bn, "sicknesst", {"sickness0": "DEAD"}, "DEAD")
-    force_deterministic(bn, "livingt", {"living0": "DEAD"}, "DEAD")
     force_deterministic(bn, "treatmentt", {"diagnosist": "DEAD"}, "NONE")
     set_prior(bn, "sickness0", SICKNESS0_PRIOR)
     return bn

@@ -23,12 +23,12 @@ cost_influence_diagram.py (diagnosis alone, not anchor).
 import cvxpy as cp
 import numpy as np
 import pyagrum as gum
-from cost_influence_diagram import (
+from elder_care_dbn.cost_influence_diagram import (
     HEALTH_PENALTY_PER_DAY,
     LIVING_COST_PER_DAY,
     TREATMENT_COST_PER_DAY,
 )
-from train_dbn import DIAGNOSIS_LABELS, LIVING_LABELS, TREATMENT_LABELS
+from elder_care_dbn.train_dbn import DIAGNOSIS_LABELS, LIVING_LABELS, TREATMENT_LABELS
 
 
 def build_mdp(bn2_path: str):

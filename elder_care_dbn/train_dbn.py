@@ -12,7 +12,7 @@ import itertools
 
 import pyagrum as gum
 
-from dbn_data_prep import build_transition_table
+from elder_care_dbn.dbn_data_prep import build_transition_table
 
 DIAGNOSIS_LABELS = ["NONE", "MILD", "MEDIUM", "DIFFICULT", "DEAD"]
 # No "DEAD" here: death is fully captured by `diagnosis`, and living never

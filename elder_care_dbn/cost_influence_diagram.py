@@ -15,7 +15,7 @@ import itertools
 import numpy as np
 import pyagrum as gum
 import pyagrum.lib.dynamicBN as gdyn
-from train_dbn import DIAGNOSIS_LABELS, LIVING_LABELS, TREATMENT_LABELS
+from elder_care_dbn.train_dbn import DIAGNOSIS_LABELS, LIVING_LABELS, TREATMENT_LABELS
 
 from cross_impact.influence_diagram import (
     InfluenceDiagramSpec,

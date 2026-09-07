@@ -54,7 +54,7 @@ HEALTH_PENALTY_PER_DAY = {
     "DEAD": 150,
 }
 
-OMALAAKARI_COST_PER_DAY = {
+PESRONAL_DOCTOR_COST_PER_DAY = {
     "0": 0,
     "1": 5
 }
@@ -83,7 +83,7 @@ def expected_total_objective(
     living_cost_per_day: dict = LIVING_COST_PER_DAY,
     treatment_cost_per_day: dict = TREATMENT_COST_PER_DAY,
     health_penalty_per_day: dict = HEALTH_PENALTY_PER_DAY,
-    omalaakari_cost_per_day: dict = OMALAAKARI_COST_PER_DAY
+    personal_doctor_cost_per_day: dict = PESRONAL_DOCTOR_COST_PER_DAY
 ) -> tuple[float, list[float], list[float]]:
     """Baseline expected cost and health penalty over T timesteps under the
     model's own (status quo) transition dynamics, with no decisions involved
@@ -108,7 +108,7 @@ def expected_total_objective(
     _check_cost_table(living_cost_per_day, LIVING_LABELS, "living")
     _check_cost_table(treatment_cost_per_day, TREATMENT_LABELS, "treatment")
     _check_cost_table(health_penalty_per_day, DIAGNOSIS_LABELS, "diagnosis")
-    _check_cost_table(omalaakari_cost_per_day, ["0", "1"], "omalaakari")
+    _check_cost_table(personal_doctor_cost_per_day, ["0", "1"], "personal_doctor")
 
     bn2 = gum.loadBN(bn2_path)
     dbn2 = gdyn.unroll2TBN(bn2, T)
@@ -121,7 +121,7 @@ def expected_total_objective(
             {
                 dbn2.idFromName(f"living{t}"),
                 dbn2.idFromName(f"treatment{t}"),
-                dbn2.idFromName(f"omalaakari{t}")
+                dbn2.idFromName(f"personal_doctor{t}")
             }
         )
     ie.makeInference()
@@ -131,12 +131,12 @@ def expected_total_objective(
     for t in range(T):
         living_var = dbn2.variable(f"living{t}")
         treatment_var = dbn2.variable(f"treatment{t}")
-        omalaakari_var = dbn2.variable(f"omalaakari{t}")
+        personal_doctor_var = dbn2.variable(f"personal_doctor{t}")
         jp = ie.jointPosterior(
             {
                 living_var.name(),
                 treatment_var.name(),
-                omalaakari_var.name()
+                personal_doctor_var.name()
             }
         )
 
@@ -146,11 +146,11 @@ def expected_total_objective(
         while not inst.end():
             lliving = living_var.label(inst.val(living_var))
             ltreat = treatment_var.label(inst.val(treatment_var))
-            lomal = omalaakari_var.label(inst.val(omalaakari_var))
+            lperso = personal_doctor_var.label(inst.val(personal_doctor_var))
             expected_cost += jp.get(inst) * (
                 living_cost_per_day[lliving] + 
                 treatment_cost_per_day[ltreat] +
-                omalaakari_cost_per_day[lomal]
+                personal_doctor_cost_per_day[lperso]
             )
             inst.inc()
         per_timestep_cost.append(expected_cost)

@@ -71,7 +71,7 @@ def _solve(problem: cp.Problem) -> None:
     # SCS is slower but consistently robust at that scale, so it's the
     # fallback rather than the default.
     try:
-        problem.solve()
+        problem.solve(verbose=True)
         if problem.status in (cp.OPTIMAL, cp.OPTIMAL_INACCURATE):
             return
     except cp.error.SolverError:
